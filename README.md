@@ -12,6 +12,11 @@ keywordsConfig.json --> contains the keywords to track from Twitter API
 repliesConfig.json  --> contains the replies
 ```
 
+Just need to configure:
+
+![echo-botnet](https://raw.githubusercontent.com/arnaucode/echo-botnet/master/configurationScreenshot.png "configurationScreenshot")
+
+
 configuration file example (botsConfig.json):
 ```
 [{
