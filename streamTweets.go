@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dghubble/go-twitter/twitter"
+	"github.com/fatih/color"
 )
 
 func isRT(tweet *twitter.Tweet) bool {
@@ -20,9 +20,9 @@ func isRT(tweet *twitter.Tweet) bool {
 	}
 	return false
 }
-func isFromOwnBot(flock Botnet, tweet *twitter.Tweet) bool {
-	for i := 0; i < len(flock.ScreenNames); i++ {
-		if flock.ScreenNames[i] == tweet.User.ScreenName {
+func isFromBotnet(tweet *twitter.Tweet) bool {
+	for i := 0; i < len(botnet); i++ {
+		if botnet[i].Title == tweet.User.ScreenName {
 			return true
 		}
 	}
@@ -40,38 +40,32 @@ func replyTweet(client *twitter.Client, text string, inReplyToStatusID int64) {
 		InReplyToStatusID: inReplyToStatusID,
 	})
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	if httpResp.Status != "200 OK" {
-		c.Red("error: " + httpResp.Status)
-		c.Purple("maybe twitter has blocked the account, CTRL+C, wait 15 minutes and try again")
+		color.Red("error: " + httpResp.Status)
+		log.Println("error" + httpResp.Status)
+		color.Cyan("maybe twitter has blocked the account, CTRL+C, wait 15 minutes and try again")
+		log.Println("maybe twitter has blocked the account, CTRL+C, wait 15 minutes and try again")
 	}
-	fmt.Print("tweet posted: ")
-	c.Green(tweet.Text)
+	log.Println("tweet posted: " + tweet.Text)
 }
 
-func startStreaming(botnet Botnet, bot *twitter.Client, botScreenName string, keywords []string, replies []string) {
+func startStreaming(bot Bot) {
 	// Convenience Demux demultiplexed stream messages
 	demux := twitter.NewSwitchDemux()
 	demux.Tweet = func(tweet *twitter.Tweet) {
-		if isRT(tweet) == false && isFromOwnBot(botnet, tweet) == false {
+		if isRT(tweet) == false && isFromBotnet(tweet) == false {
 			//processTweet(botnetUser, botScreenName, keywords, tweet)
-			fmt.Println("[bot @" + botScreenName + "] - New tweet detected:")
-			c.Yellow(tweet.Text)
+			log.Println("[bot @" + bot.Title + "] - New tweet detected:")
+			log.Println(tweet.Text)
 			reply := getRandomReplyFromReplies(replies)
-			fmt.Print("reply: ")
-			c.Green(reply)
-			fmt.Println(tweet.User.ScreenName)
-			fmt.Println(tweet.ID)
-			replyTweet(bot, "@"+tweet.User.ScreenName+" "+reply, tweet.ID)
-			waitMinutes(1)
+			log.Println("reply: " + reply + ", to: @" + tweet.User.ScreenName /* + ". tweet ID: " + tweet.ID*/)
+
+			//replyTweet(bot, "@"+tweet.User.ScreenName+" "+reply, tweet.ID)
+			color.Green("replying tweet!")
+			bot.SinceTweeted = time.Now().Unix()
 		}
-	}
-	demux.DM = func(dm *twitter.DirectMessage) {
-		fmt.Println(dm.SenderID)
-	}
-	demux.Event = func(event *twitter.Event) {
-		fmt.Printf("%#v\n", event)
 	}
 
 	fmt.Println("Starting Stream...")
@@ -80,29 +74,13 @@ func startStreaming(botnet Botnet, bot *twitter.Client, botScreenName string, ke
 		Track:         keywords,
 		StallWarnings: twitter.Bool(true),
 	}
-	stream, err := bot.Streams.Filter(filterParams)
-	if err != nil {
-		log.Fatal(err)
-	}
+	stream, err := bot.Client.Streams.Filter(filterParams)
+	check(err)
 	// Receive messages until stopped or stream quits
 	demux.HandleChan(stream.Messages)
-
-	// Wait for SIGINT and SIGTERM (HIT CTRL-C)
-	/*ch := make(chan os.Signal)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-	log.Println(<-ch)
-
-	fmt.Println("Stopping Stream...")
-	stream.Stop()*/
-}
-func streamTweets(botnet Botnet, keywords []string, replies []string) {
-	fmt.Println("total keywords: " + strconv.Itoa(len(keywords)))
-	c.Purple("keywords to follow: ")
-	fmt.Println(keywords)
-	c.Green("Starting to stream tweets")
-	for i := 0; i < len(botnet.Clients); i++ {
-		go startStreaming(botnet, botnet.Clients[i], botnet.ScreenNames[i], keywords, replies)
-		//wait 35 seconds to start the next bot
-		waitSeconds(35)
-	}
+	/*for message := range stream.Messages {
+		demux.Handle(message)
+		log.Println("stopping stream")
+		stream.Stop()
+	}*/
 }
