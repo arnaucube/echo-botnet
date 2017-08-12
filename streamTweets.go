@@ -51,22 +51,9 @@ func replyTweet(client *twitter.Client, text string, inReplyToStatusID int64) {
 	log.Println("tweet posted: " + tweet.Text)
 }
 
-func startStreaming(bot Bot) {
+func startStreaming(bot *Bot) {
 	// Convenience Demux demultiplexed stream messages
 	demux := twitter.NewSwitchDemux()
-	demux.Tweet = func(tweet *twitter.Tweet) {
-		if isRT(tweet) == false && isFromBotnet(tweet) == false {
-			//processTweet(botnetUser, botScreenName, keywords, tweet)
-			log.Println("[bot @" + bot.Title + "] - New tweet detected:")
-			log.Println(tweet.Text)
-			reply := getRandomReplyFromReplies(replies)
-			log.Println("reply: " + reply + ", to: @" + tweet.User.ScreenName /* + ". tweet ID: " + tweet.ID*/)
-
-			//replyTweet(bot, "@"+tweet.User.ScreenName+" "+reply, tweet.ID)
-			color.Green("replying tweet!")
-			bot.SinceTweeted = time.Now().Unix()
-		}
-	}
 
 	fmt.Println("Starting Stream...")
 	// FILTER
@@ -77,10 +64,33 @@ func startStreaming(bot Bot) {
 	stream, err := bot.Client.Streams.Filter(filterParams)
 	check(err)
 	// Receive messages until stopped or stream quits
-	demux.HandleChan(stream.Messages)
-	/*for message := range stream.Messages {
-		demux.Handle(message)
-		log.Println("stopping stream")
-		stream.Stop()
-	}*/
+	for message := range stream.Messages {
+		demux.All(message)
+		switch msg := message.(type) {
+		case *twitter.Tweet:
+			r := handleTweet(msg, bot)
+			if r {
+				log.Println("stopping stream")
+				stream.Stop()
+			}
+		default:
+		}
+	}
+}
+
+func handleTweet(tweet *twitter.Tweet, bot *Bot) bool {
+	r := false
+	if isRT(tweet) == false && isFromBotnet(tweet) == false {
+		//processTweet(botnetUser, botScreenName, keywords, tweet)
+		log.Println("[bot @" + bot.Title + "] - New tweet detected:")
+		log.Println(tweet.Text)
+		reply := getRandomReplyFromReplies(replies)
+		log.Println("reply: " + reply + ", to: @" + tweet.User.ScreenName /* + ". tweet ID: " + tweet.ID*/)
+
+		//replyTweet(bot, "@"+tweet.User.ScreenName+" "+reply, tweet.ID)
+		color.Green("@" + bot.Title + " replying tweet!")
+		bot.SinceTweeted = time.Now().Unix()
+		r = true
+	}
+	return r
 }

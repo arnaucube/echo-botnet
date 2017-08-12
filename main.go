@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/fatih/color"
@@ -34,15 +33,13 @@ func main() {
 	}
 	var i int
 	for {
-		color.Red(strconv.Itoa(i))
 		sinceTweeted := time.Unix(botnet[i].SinceTweeted, 0)
 		elapsed := time.Since(sinceTweeted)
-		fmt.Println(elapsed)
 		if elapsed.Seconds() > 60 {
-			log.Println("starting to use bot: " + botnet[i].Title)
-			startStreaming(botnet[i])
+			color.Blue("starting to use bot: " + botnet[i].Title)
+			startStreaming(&botnet[i])
 		} else {
-			log.Println("bot: " + botnet[i].Title + " not used due bot is in waiting time")
+			//log.Println("bot: " + botnet[i].Title + " not used due bot is in waiting time")
 		}
 		i++
 		if i > len(botnet)-1 {
